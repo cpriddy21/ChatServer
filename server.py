@@ -32,9 +32,8 @@ def serverTCP(host, port):
         
 
 def handleClients(conn, addr):
-
     username = conn.recv(1024).decode("utf-8")
-    print(f"Connection from {addr}|{conn}|User: {username}")
+    print(f"Connection from {addr}|User: {username}")
     conn.send(bytes(f"Welcome to the server, {username}!", "utf-8"))
 
     while True:
@@ -46,8 +45,12 @@ def handleClients(conn, addr):
         # Broadcast the message to all connected clients
         broadcast_message = f"{username}: {message}"
         for client in clients:
-            if client != conn:
+            try:
+                # Try to send the message
                 client.send(bytes(broadcast_message, "utf-8"))
+            except OSError:
+                # If an error occurs, remove the client from the list
+                clients.remove(client)
 
     conn.close()
 

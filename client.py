@@ -1,6 +1,8 @@
 #client
 import socket
+import threading
 from tkinter import *
+
 
 def main():
     host = '127.0.0.1'
@@ -41,7 +43,30 @@ def client(host,port):
     user_input.bind("<Return>", lambda event: send_message(user_input, client_socket, chat_history))
     user_input.pack()
 
+    thread = threading.Thread(target=update_chat, args=(client_socket, chat_history))
+    thread.start()
+
     window.mainloop()
+    
+
+    # while True:
+    #     message = input()
+    #     client_socket.send(bytes(message, "utf-8"))
+    #     message = user_input.get()
+    #     chat_history.config(state=NORMAL)
+    #     chat_history.insert(END, "User: " + message + "\n")
+    #     chat_history.config(state=DISABLED)
+    #     if message == "stop;":
+    #         client_socket.close()
+
+def update_chat(client_socket,chat_history):
+    while True:
+        msg = client_socket.recv(1024).decode("utf-8")
+        chat_history.config(state=NORMAL)
+        chat_history.insert(END, msg + "\n")
+        chat_history.config(state=DISABLED)
+
+
 
 def send_message(user_input, client_socket, chat_history):
     message = user_input.get()
