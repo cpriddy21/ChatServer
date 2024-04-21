@@ -1,6 +1,8 @@
 #server
 import socket
 import threading
+import ssl
+
 
 clients = []
 
@@ -24,7 +26,6 @@ def serverTCP(host, port):
     while True:
         # Wait for a connection
         conn, addr = server_socket.accept()
-        clients.append(conn)
 
         # Start a new thread to handle the client
         client_thread = threading.Thread(target=handleClients, args=(conn, addr))
@@ -34,7 +35,13 @@ def serverTCP(host, port):
 def handleClients(conn, addr):
     username = conn.recv(1024).decode("utf-8")
     print(f"Connection from {addr}|User: {username}")
+    
+
     conn.send(bytes(f"Welcome to the server, {username}!", "utf-8"))
+
+    clients.append(conn)
+
+    
 
     while True:
         message = conn.recv(1024).decode("utf-8")
