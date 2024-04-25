@@ -1,7 +1,7 @@
 #server
 import socket
 import threading
-import ssl
+import rsa
 
 
 clients = []
@@ -9,54 +9,73 @@ clients = []
 def main():
 	host = '127.0.0.1'
 	port = 15000
+    #start the server
 	serverTCP(host, port)
     
 	
 def serverTCP(host, port):
-    # Create a TCP/IP socket
+    #create a TCP/IP socket
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     
-    # Bind the socket to a specific address and port
+    #bind the socket 
     server_socket.bind((host, port))
     
-    # Listen for incoming connections
+    #listen for incoming connections
     server_socket.listen(10)
     print(f"Server listening on {host}:{port}")
 
     while True:
-        # Wait for a connection
+        #wait for a connection
         conn, addr = server_socket.accept()
 
-        # Start a new thread to handle the client
+        #start thread to handle the client
         client_thread = threading.Thread(target=handleClients, args=(conn, addr))
         client_thread.start()
         
 
 def handleClients(conn, addr):
-    username = conn.recv(1024).decode("utf-8")
+    #generate a new RSA key pair
+    public_key, private_key = rsa.newkeys(512)
+
+    #send the public rsa key to the client
+    conn.send(public_key.save_pkcs1())
+
+    #receive public rsa key from client
+    public_key_data = conn.recv(4096)
+    cli_public_key = rsa.PublicKey.load_pkcs1(public_key_data)
+
+    #encrypted username of client received
+    encrypted_username = conn.recv(1024)
+    username = rsa.decrypt(encrypted_username, private_key).decode("utf-8")
+
     print(f"Connection from {addr}|User: {username}")
+
+    #send welcome message to client
+    welcome_message = f"Welcome to the server, {username}!"
+    encrypted_message = rsa.encrypt(welcome_message.encode(), cli_public_key)
+    conn.send(encrypted_message)
+
+    #store client connection and key
+    clients.append((conn, cli_public_key))
+
     
-
-    conn.send(bytes(f"Welcome to the server, {username}!", "utf-8"))
-
-    clients.append(conn)
-
-    
-
     while True:
-        message = conn.recv(1024).decode("utf-8")
-        if not message:
+        #receive messages
+        encrypted_message = conn.recv(1024)
+        if not encrypted_message:
             break
+        #decrypt
+        message = rsa.decrypt(encrypted_message, private_key).decode("utf-8")
         print(f"{username}: {message}")
 
         # Broadcast the message to all connected clients
         broadcast_message = f"{username}: {message}"
         for client in clients:
             try:
-                # Try to send the message
-                client.send(bytes(broadcast_message, "utf-8"))
+                #try to send the message
+                client[0].send(rsa.encrypt(broadcast_message.encode(), client[1]))
             except OSError:
-                # If an error occurs, remove the client from the list
+                #if an error occurs, remove the client from the list
                 clients.remove(client)
 
     conn.close()
